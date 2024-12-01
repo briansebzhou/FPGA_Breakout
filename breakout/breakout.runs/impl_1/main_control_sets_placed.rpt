@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
 ---------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2024.1.1 (win64) Build 5094488 Fri Jun 14 08:59:21 MDT 2024
-| Date         : Sat Nov 30 21:29:09 2024
+| Date         : Sat Nov 30 23:37:03 2024
 | Host         : Brian-Legion5i running 64-bit major release  (build 9200)
 | Command      : report_control_sets -verbose -file main_control_sets_placed.rpt
 | Design       : main
@@ -23,11 +23,11 @@ Table of Contents
 +----------------------------------------------------------+-------+
 |                          Status                          | Count |
 +----------------------------------------------------------+-------+
-| Total control sets                                       |    10 |
-|    Minimum number of control sets                        |    10 |
+| Total control sets                                       |    12 |
+|    Minimum number of control sets                        |    12 |
 |    Addition due to synthesis replication                 |     0 |
 |    Addition due to physical synthesis replication        |     0 |
-| Unused register locations in slices containing registers |    53 |
+| Unused register locations in slices containing registers |    61 |
 +----------------------------------------------------------+-------+
 * Control sets can be merged at opt_design using control_set_merge or merge_equivalent_drivers
 ** Run report_qor_suggestions for automated merging and remapping suggestions
@@ -39,9 +39,9 @@ Table of Contents
 +--------------------+-------+
 |       Fanout       | Count |
 +--------------------+-------+
-| Total control sets |    10 |
+| Total control sets |    12 |
 | >= 0 to < 4        |     3 |
-| >= 4 to < 6        |     2 |
+| >= 4 to < 6        |     4 |
 | >= 6 to < 8        |     1 |
 | >= 8 to < 10       |     1 |
 | >= 10 to < 12      |     2 |
@@ -58,31 +58,33 @@ Table of Contents
 +--------------+-----------------------+------------------------+-----------------+--------------+
 | Clock Enable | Synchronous Set/Reset | Asynchronous Set/Reset | Total Registers | Total Slices |
 +--------------+-----------------------+------------------------+-----------------+--------------+
-| No           | No                    | No                     |              58 |           33 |
+| No           | No                    | No                     |              58 |           35 |
 | No           | No                    | Yes                    |               0 |            0 |
 | No           | Yes                   | No                     |              12 |            7 |
-| Yes          | No                    | No                     |              18 |           11 |
+| Yes          | No                    | No                     |              22 |           10 |
 | Yes          | No                    | Yes                    |               0 |            0 |
-| Yes          | Yes                   | No                     |              19 |            9 |
+| Yes          | Yes                   | No                     |              23 |           10 |
 +--------------+-----------------------+------------------------+-----------------+--------------+
 
 
 4. Detailed Control Set Information
 -----------------------------------
 
-+--------------+------------------------+------------------------+------------------+----------------+--------------+
-| Clock Signal |      Enable Signal     |    Set/Reset Signal    | Slice Load Count | Bel Load Count | Bels / Slice |
-+--------------+------------------------+------------------------+------------------+----------------+--------------+
-|  clkfx_BUFG  |                        | vsync0                 |                1 |              1 |         1.00 |
-|  clkfx_BUFG  |                        | hsync0                 |                1 |              1 |         1.00 |
-|  clkfx_BUFG  | hcount[9]_i_1_n_0      |                        |                1 |              1 |         1.00 |
-|  clkfx_BUFG  | game/ball_x[9]_i_2_n_0 | game/ball_x[9]_i_1_n_0 |                2 |              5 |         2.50 |
-|  clkfx_BUFG  | game/ball_x            | game/ball_x[8]_i_1_n_0 |                3 |              5 |         1.67 |
-|  clkfx_BUFG  | game/ball_x            |                        |                5 |              7 |         1.40 |
-|  clkfx_BUFG  | hcount[9]_i_1_n_0      | vcount                 |                4 |              9 |         2.25 |
-|  clkfx_BUFG  |                        | hcount[9]_i_1_n_0      |                5 |             10 |         2.00 |
-|  clkfx_BUFG  | game/paddle_x          |                        |                5 |             10 |         2.00 |
-|  clkfx_BUFG  |                        |                        |               33 |             58 |         1.76 |
-+--------------+------------------------+------------------------+------------------+----------------+--------------+
++--------------+-------------------------+------------------------+------------------+----------------+--------------+
+| Clock Signal |      Enable Signal      |    Set/Reset Signal    | Slice Load Count | Bel Load Count | Bels / Slice |
++--------------+-------------------------+------------------------+------------------+----------------+--------------+
+|  clkfx_BUFG  |                         | hsync0                 |                1 |              1 |         1.00 |
+|  clkfx_BUFG  |                         | vsync0                 |                1 |              1 |         1.00 |
+|  clkfx_BUFG  | hcount[9]_i_1_n_0       |                        |                1 |              1 |         1.00 |
+|  clkfx_BUFG  | game/ball_x             | game/ball_y[8]_i_1_n_0 |                2 |              4 |         2.00 |
+|  clkfx_BUFG  | game/ball_x             |                        |                2 |              5 |         2.50 |
+|  clkfx_BUFG  | game/ball_x             | game/ball_x[8]_i_1_n_0 |                3 |              5 |         1.67 |
+|  clkfx_BUFG  | game/ball_x[9]_i_2_n_0  | game/ball_x[9]_i_1_n_0 |                3 |              5 |         1.67 |
+|  clkfx_BUFG  | game/score_i[5]_i_1_n_0 |                        |                2 |              6 |         3.00 |
+|  clkfx_BUFG  | hcount[9]_i_1_n_0       | vcount                 |                2 |              9 |         4.50 |
+|  clkfx_BUFG  |                         | hcount[9]_i_1_n_0      |                5 |             10 |         2.00 |
+|  clkfx_BUFG  | game/paddle_x           |                        |                5 |             10 |         2.00 |
+|  clkfx_BUFG  |                         |                        |               35 |             58 |         1.66 |
++--------------+-------------------------+------------------------+------------------+----------------+--------------+
 
 

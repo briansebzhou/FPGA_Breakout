@@ -57,7 +57,6 @@ if {$::dispatch::connected} {
 
 OPTRACE "synth_1" START { ROLLUP_AUTO }
 set_param chipscope.maxJobs 4
-set_param xicom.use_bs_reader 1
 OPTRACE "Creating in-memory project" START { }
 create_project -in_memory -part xc7a35tcpg236-1
 
@@ -76,6 +75,9 @@ OPTRACE "Creating in-memory project" END { }
 OPTRACE "Adding files" START { }
 read_vhdl -library xil_defaultlib {
   {C:/Users/Xingyu_Brian_Zhou/Documents/BaiduSyncdisk/0A Curriculum/FPGA Lab/Project/FPGA_Breakout/breakout.vhd}
+  {C:/Users/Xingyu_Brian_Zhou/Documents/BaiduSyncdisk/0A Curriculum/FPGA Lab/Project/FPGA_Breakout/commonPak.vhd}
+  {C:/Users/Xingyu_Brian_Zhou/Documents/BaiduSyncdisk/0A Curriculum/FPGA Lab/Project/FPGA_Breakout/char_rom.vhd}
+  {C:/Users/Xingyu_Brian_Zhou/Documents/BaiduSyncdisk/0A Curriculum/FPGA Lab/Project/FPGA_Breakout/show_text.vhd}
   {C:/Users/Xingyu_Brian_Zhou/Documents/BaiduSyncdisk/0A Curriculum/FPGA Lab/Project/FPGA_Breakout/main.vhd}
 }
 OPTRACE "Adding files" END { }
