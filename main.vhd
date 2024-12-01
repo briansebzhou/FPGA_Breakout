@@ -4,6 +4,9 @@ use IEEE.numeric_std.all;
 library UNISIM;
 use UNISIM.vcomponents.all;
 
+library work;
+use work.commonPak.all;
+
 entity main is
 	port(
 		clk:   in    std_logic;
@@ -27,6 +30,12 @@ architecture arch of main is
 	signal obj1_red: std_logic_vector(1 downto 0);
 	signal obj1_grn: std_logic_vector(1 downto 0);
 	signal obj1_blu: std_logic_vector(1 downto 0);
+	signal obj2_red: std_logic_vector(1 downto 0);
+	signal obj2_grn: std_logic_vector(1 downto 0);
+	signal obj2_blu: std_logic_vector(1 downto 0);
+    signal pixOn: std_logic;
+	signal score: integer range 0 to 40;
+	signal displayText: string(1 to 9);
 
 	-- Game component declaration
 	component breakout is
@@ -38,7 +47,8 @@ architecture arch of main is
 			btn:       in  std_logic_vector(1 downto 0);
 			obj1_red:  out std_logic_vector(1 downto 0);
 			obj1_grn:  out std_logic_vector(1 downto 0);
-			obj1_blu:  out std_logic_vector(1 downto 0)
+			obj1_blu:  out std_logic_vector(1 downto 0);
+			score:     out integer
 		);
 	end component;
 begin
@@ -181,9 +191,23 @@ begin
 	------------------------------------------------------------------
 	-- VGA output with blanking
 	------------------------------------------------------------------
-	red<=b"00" when blank='1' else obj1_red;
-	green<=b"00" when blank='1' else obj1_grn;
-	blue<=b"00" when blank='1' else obj1_blu;
+	
+--	red<=b"00" when blank='1' else obj1_red;
+--	green<=b"00" when blank='1' else obj1_grn;
+--	blue<=b"00" when blank='1' else obj1_blu;
+
+	red <= b"00" when blank = '1' else
+           b"11" when (obj1_red = "11" or obj2_red = "11") else
+           obj1_red;
+
+    green <= b"00" when blank = '1' else
+             b"11" when (obj1_grn = "11" or obj2_grn = "11") else
+             obj1_grn;
+    
+    blue <= b"00" when blank = '1' else
+            b"11" when (obj1_blu = "11" or obj2_blu = "11") else
+            obj1_blu;
+
 
 	-- Game component instantiation
 	game: breakout port map(
@@ -194,7 +218,56 @@ begin
 		btn       => btn,
 		obj1_red  => obj1_red,
 		obj1_grn  => obj1_grn,
-		obj1_blu  => obj1_blu
+		obj1_blu  => obj1_blu,
+		score     => score
 	);
+	
+	------------------------------------------------------------------
+    -- Text rendering process
+    ------------------------------------------------------------------
+    textElement1: entity work.show_text
+	generic map (
+		textLength => 9
+	)
+	port map(
+		clk => clkfx,
+		displayText => displayText,
+		position => (20, 20),
+		horzCoord => to_integer(hcount),
+		vertCoord => to_integer(vcount),
+		pixel => pixOn
+	);
+	
+
+    process(score)
+        variable tempStr: string(1 to 2);  -- Temporary variable to build the string
+--        variable num: integer;             -- Variable to hold the current number
+--        variable i: integer;               -- Index for string construction
+    begin
+        -- Initialize tempStr to spaces (or zeros) for padding
+        tempStr := (others => ' ');
+        
+        -- Convert each digit to a character and build the string
+        tempStr(2):= character'val((score mod 10) + 48);
+        tempStr(1):= character'val((score / 10) + 48);
+    
+        -- Add prefix "SCORE: " to the final string
+        displayText <= "SCORE: " & tempStr;
+    end process;
+    
+	process(clkfx)
+    begin
+        if rising_edge(clkfx) then
+            if pixOn = '1' then
+                obj2_red <= b"11";
+                obj2_grn <= b"11";
+                obj2_blu <= b"11";
+            else
+                obj2_red <= b"00";
+                obj2_grn <= b"00";
+                obj2_blu <= b"00";
+            end if;
+        end if;
+    end process;
 
 end arch;

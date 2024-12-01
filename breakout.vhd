@@ -11,7 +11,8 @@ entity breakout is
         btn:       in  std_logic_vector(1 downto 0);
         obj1_red:  out std_logic_vector(1 downto 0);
         obj1_grn:  out std_logic_vector(1 downto 0);
-        obj1_blu:  out std_logic_vector(1 downto 0)
+        obj1_blu:  out std_logic_vector(1 downto 0);
+        score:     out integer
     );
 end breakout;
 
@@ -66,7 +67,7 @@ architecture arch of breakout is
     
     signal game_over: std_logic := '0';
     signal game_started: std_logic := '0';
-    signal score: integer range 0 to 40 := 0;
+    signal score_i: integer range 0 to 40 := 0;
 
     -- Helper function for collision detection
     function is_colliding(
@@ -83,6 +84,7 @@ architecture arch of breakout is
     end function;
 
 begin
+    score <= score_i;
     process(clkfx)
         variable block_x, block_y: integer;
         variable next_ball_x : integer range GAME_LEFT_BOUND to GAME_RIGHT_BOUND;
@@ -180,7 +182,7 @@ begin
                     game_over <= '0';
                     game_started <= '0';
                     blocks <= (others => '1');
-                    score <= 0;
+                    score_i <= 0;
                     ball_x <= paddle_x;
                     ball_y <= PADDLE_Y - BALL_SIZE - 1;
                 end if;
@@ -259,7 +261,7 @@ begin
                                 ) then
                                     blocks(i) <= '0';
                                     ball_dy <= -ball_dy;
-                                    score <= score + 1;
+                                    score_i <= score_i + 1;
                                 end if;
                             end if;
                         end loop;
