@@ -4,7 +4,7 @@ use IEEE.numeric_std.all;
 library UNISIM;
 use UNISIM.vcomponents.all;
 
-entity lab_f is
+entity main is
 	port(
 		clk:   in    std_logic;
 		tx:    out   std_logic;
@@ -12,11 +12,12 @@ entity lab_f is
 		green: out   std_logic_vector(1 downto 0);
 		blue:  out   std_logic_vector(1 downto 0);
 		hsync: out   std_logic;
-		vsync: out   std_logic
+		vsync: out   std_logic;
+		btn:   in    std_logic_vector(1 downto 0)
 	);
-end lab_f;
+end main;
 
-architecture arch of lab_f is
+architecture arch of main is
 	signal clkfb:    std_logic;
 	signal clkfx:    std_logic;
 	signal hcount:   unsigned(9 downto 0);
@@ -26,6 +27,20 @@ architecture arch of lab_f is
 	signal obj1_red: std_logic_vector(1 downto 0);
 	signal obj1_grn: std_logic_vector(1 downto 0);
 	signal obj1_blu: std_logic_vector(1 downto 0);
+
+	-- Game component declaration
+	component breakout is
+		port(
+			clkfx:     in  std_logic;
+			hcount:    in  unsigned(9 downto 0);
+			vcount:    in  unsigned(9 downto 0);
+			frame:     in  std_logic;
+			btn:       in  std_logic_vector(1 downto 0);
+			obj1_red:  out std_logic_vector(1 downto 0);
+			obj1_grn:  out std_logic_vector(1 downto 0);
+			obj1_blu:  out std_logic_vector(1 downto 0)
+		);
+	end component;
 begin
 	tx<='1';
 
@@ -169,5 +184,17 @@ begin
 	red<=b"00" when blank='1' else obj1_red;
 	green<=b"00" when blank='1' else obj1_grn;
 	blue<=b"00" when blank='1' else obj1_blu;
+
+	-- Game component instantiation
+	game: breakout port map(
+		clkfx     => clkfx,
+		hcount    => hcount,
+		vcount    => vcount,
+		frame     => frame,
+		btn       => btn,
+		obj1_red  => obj1_red,
+		obj1_grn  => obj1_grn,
+		obj1_blu  => obj1_blu
+	);
 
 end arch;
