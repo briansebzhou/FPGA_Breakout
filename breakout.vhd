@@ -89,8 +89,15 @@ begin
         variable block_x, block_y: integer;
         variable next_ball_x : integer range GAME_LEFT_BOUND to GAME_RIGHT_BOUND;
         variable next_ball_y : integer range GAME_TOP_BOUND to GAME_BOTTOM_BOUND;
+        variable cleared_blocks_count : integer range 0 to (BLOCKS_PER_ROW * NUM_ROWS) := 0;
     begin
         if rising_edge(clkfx) then
+            -- Reset game logic
+            if game_over = '1' and (btn(0) = '1' or btn(1) = '1') then
+                blocks <= (others => '1');
+                cleared_blocks_count := 0;
+            end if;
+
             -- Default colors (black background)
             obj1_red <= "00";
             obj1_grn <= "00";
@@ -259,15 +266,43 @@ begin
                                     ball_x - BALL_SIZE, ball_y - BALL_SIZE, BALL_SIZE*2, BALL_SIZE*2,
                                     block_x, block_y, BLOCK_WIDTH, BLOCK_HEIGHT
                                 ) then
-                                    blocks(i) <= '0';
-                                    ball_dy <= -ball_dy;
-                                    score_i <= score_i + 1;
+                                    -- Horizontal collision detection
+                                    if ball_x + BALL_SIZE <= block_x then
+                                        next_ball_x := block_x - BALL_SIZE;
+                                        ball_dx <= -abs(ball_dx);
+                                        blocks(i) <= '0';
+                                    elsif ball_x - BALL_SIZE >= block_x + BLOCK_WIDTH then
+                                        next_ball_x := block_x + BLOCK_WIDTH + BALL_SIZE;
+                                        ball_dx <= abs(ball_dx);
+                                        blocks(i) <= '0';
+                                    
+                                    -- Vertical collision detection
+                                    elsif ball_y + BALL_SIZE <= block_y then
+                                        next_ball_y := block_y - BALL_SIZE;
+                                        ball_dy <= -abs(ball_dy);
+                                        blocks(i) <= '0';
+                                    elsif ball_y - BALL_SIZE >= block_y + BLOCK_HEIGHT then
+                                        next_ball_y := block_y + BLOCK_HEIGHT + BALL_SIZE;
+                                        ball_dy <= abs(ball_dy);
+                                        blocks(i) <= '0';
+                                    end if;
                                 end if;
                             end if;
                         end loop;
                     end if;
                 end if;
             end if;
+
+            -- Count cleared blocks
+            cleared_blocks_count := 0;
+            for i in 0 to (BLOCKS_PER_ROW * NUM_ROWS - 1) loop
+                if blocks(i) = '0' then
+                    cleared_blocks_count := cleared_blocks_count + 1;
+                end if;
+            end loop;
+
+            -- Update score
+            score_i <= cleared_blocks_count;
         end if;
     end process;
 end arch;

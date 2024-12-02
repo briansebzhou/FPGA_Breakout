@@ -1,1 +1,25 @@
+# Completely ignore breakout folder and its contents
+/breakout/
+/breakout/**
 breakout/
+breakout/**
+breakout*
+
+# Vivado specific ignores for breakout
+breakout/**/*.log
+breakout/**/*.jou
+breakout/**/*.str
+breakout/**/*.pb
+breakout/**/*.wdb
+breakout/**/*.xpr
+breakout/**/*.cache/
+breakout/**/*.hw/
+breakout/**/*.ip_user_files/
+breakout/**/*.runs/
+breakout/**/*.sim/
+breakout/**/*.srcs/
+
+# Ignore temporary and backup files
+*~
+*.swp
+*.bak
