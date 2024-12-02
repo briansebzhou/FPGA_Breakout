@@ -1,25 +1,35 @@
 # Completely ignore breakout folder and its contents
-/breakout/
-/breakout/**
 breakout/
 breakout/**
+/breakout/
+/breakout/**
 breakout*
 
-# Vivado specific ignores for breakout
+# Ignore all Vivado project files in breakout
+breakout/**/*.xpr
+breakout/**/*.bit
+breakout/**/*.mcs
+breakout/**/*.bin
+
+# Ignore Vivado generated directories
+breakout/**/hw/
+breakout/**/bd/
+breakout/**/ip/
+breakout/**/*.cache/
+breakout/**/*.runs/
+breakout/**/*.sim/
+breakout/**/*.srcs/
+
+# Ignore log and temporary files
 breakout/**/*.log
 breakout/**/*.jou
 breakout/**/*.str
 breakout/**/*.pb
 breakout/**/*.wdb
-breakout/**/*.xpr
-breakout/**/*.cache/
-breakout/**/*.hw/
-breakout/**/*.ip_user_files/
-breakout/**/*.runs/
-breakout/**/*.sim/
-breakout/**/*.srcs/
 
-# Ignore temporary and backup files
+# Global temporary and backup files
 *~
 *.swp
 *.bak
+.DS_Store
+Thumbs.db
