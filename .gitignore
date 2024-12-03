@@ -3,7 +3,6 @@ breakout/
 breakout/**
 /breakout/
 /breakout/**
-breakout*
 
 # Ignore all Vivado project files in breakout
 breakout/**/*.xpr
