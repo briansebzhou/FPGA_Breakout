@@ -12,7 +12,9 @@ entity breakout is
         obj1_red:  out std_logic_vector(1 downto 0);
         obj1_grn:  out std_logic_vector(1 downto 0);
         obj1_blu:  out std_logic_vector(1 downto 0);
-        score:     out integer
+        score:     out integer;
+        game_started_port: out std_logic;
+        game_over_port:    out std_logic
     );
 end breakout;
 
@@ -85,6 +87,9 @@ architecture arch of breakout is
 
 begin
     score <= score_i;
+    game_started_port <= game_started;
+    game_over_port <= game_over;
+
     process(clkfx)
         variable block_x, block_y: integer;
         variable next_ball_x : integer range GAME_LEFT_BOUND to GAME_RIGHT_BOUND;
@@ -135,16 +140,23 @@ begin
                    hcount < to_unsigned(block_x + BLOCK_WIDTH, 10) and
                    vcount >= to_unsigned(block_y, 10) and
                    vcount < to_unsigned(block_y + BLOCK_HEIGHT, 10) then
-                    -- Color based on row
-                    case (i / BLOCKS_PER_ROW) is
-                        when 0 => obj1_red <= "11"; -- Red row
-                        when 1 => obj1_grn <= "11"; -- Green row
-                        when 2 => obj1_blu <= "11"; -- Blue row
-                        when others => 
-                            obj1_red <= "11";      -- White row
-                            obj1_grn <= "11";
-                            obj1_blu <= "11";
-                    end case;
+                    -- gray blocks when start or game over
+                    if (game_started = '0') or (game_over = '1') then
+                        obj1_red <= "10";
+                        obj1_grn <= "10";
+                        obj1_blu <= "10";
+                    else
+                        -- Color based on row
+                        case (i / BLOCKS_PER_ROW) is
+                            when 0 => obj1_red <= "11"; -- Red row
+                            when 1 => obj1_grn <= "11"; -- Green row
+                            when 2 => obj1_blu <= "11"; -- Blue row
+                            when others => 
+                                obj1_red <= "11";      -- White row
+                                obj1_grn <= "11";
+                                obj1_blu <= "11";
+                        end case;
+                    end if;
                 end if;
             end loop;
             
@@ -187,7 +199,7 @@ begin
                 -- Game restart logic
                 if game_over = '1' and (btn(0) = '1' or btn(1) = '1') then
                     game_over <= '0';
-                    game_started <= '0';
+                    -- game_started <= '0'; // comment out to avoid glitch in transition from game over to start
                     blocks <= (others => '1');
                     score_i <= 0;
                     ball_x <= paddle_x;
@@ -196,7 +208,9 @@ begin
                 
                 if game_over = '0' then
                     -- Paddle movement with boundary checking
-                    if btn(1) = '1' and paddle_x < GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1 then
+                    if btn(1) = '1' and btn(0) = '1' then
+                        paddle_x <= paddle_x;
+                    elsif btn(1) = '1' and paddle_x < GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1 then
                         paddle_x <= paddle_x + PADDLE_SPEED;
                     elsif btn(0) = '1' and paddle_x > GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1 then
                         paddle_x <= paddle_x - PADDLE_SPEED;

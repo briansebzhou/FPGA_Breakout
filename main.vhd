@@ -33,10 +33,15 @@ architecture arch of main is
 	signal obj2_red: std_logic_vector(1 downto 0);
 	signal obj2_grn: std_logic_vector(1 downto 0);
 	signal obj2_blu: std_logic_vector(1 downto 0);
-    signal pixOn: std_logic;
 	signal score: integer range 0 to 40;
-	signal displayText: string(1 to 9);
-
+	signal game_started: std_logic;
+	signal game_over:    std_logic;
+	signal displayScore:  string(1 to 9);
+	signal displayStart:  string(1 to 28);
+	signal displayOver:  string(1 to 10);
+	signal pixOnScore: std_logic;
+	signal pixOnStart: std_logic;
+	signal pixOnOver:  std_logic;
 	-- Game component declaration
 	component breakout is
 		port(
@@ -48,7 +53,9 @@ architecture arch of main is
 			obj1_red:  out std_logic_vector(1 downto 0);
 			obj1_grn:  out std_logic_vector(1 downto 0);
 			obj1_blu:  out std_logic_vector(1 downto 0);
-			score:     out integer
+			score:     out integer;
+			game_started_port: out std_logic;
+            game_over_port:    out std_logic
 		);
 	end component;
 begin
@@ -219,7 +226,9 @@ begin
 		obj1_red  => obj1_red,
 		obj1_grn  => obj1_grn,
 		obj1_blu  => obj1_blu,
-		score     => score
+		score     => score,
+		game_started_port => game_started,
+		game_over_port => game_over
 	);
 	
 	------------------------------------------------------------------
@@ -231,18 +240,42 @@ begin
 	)
 	port map(
 		clk => clkfx,
-		displayText => displayText,
+		displayText => displayScore,
 		position => (20, 20),
 		horzCoord => to_integer(hcount),
 		vertCoord => to_integer(vcount),
-		pixel => pixOn
+		pixel => pixOnScore
+	);
+	
+	textElement2: entity work.show_text
+	generic map (
+		textLength => 28
+	)
+	port map(
+		clk => clkfx,
+		displayText => displayStart,
+		position => (225, 320),
+		horzCoord => to_integer(hcount),
+		vertCoord => to_integer(vcount),
+		pixel => pixOnStart
+	);
+	
+	textElement3: entity work.show_text
+	generic map (
+		textLength => 10
+	)
+	port map(
+		clk => clkfx,
+		displayText => displayOver,
+		position => (275, 280),
+		horzCoord => to_integer(hcount),
+		vertCoord => to_integer(vcount),
+		pixel => pixOnOver
 	);
 	
 
     process(score)
         variable tempStr: string(1 to 2);  -- Temporary variable to build the string
---        variable num: integer;             -- Variable to hold the current number
---        variable i: integer;               -- Index for string construction
     begin
         -- Initialize tempStr to spaces (or zeros) for padding
         tempStr := (others => ' ');
@@ -252,13 +285,31 @@ begin
         tempStr(1):= character'val((score / 10) + 48);
     
         -- Add prefix "SCORE: " to the final string
-        displayText <= "SCORE: " & tempStr;
+        displayScore <= "SCORE: " & tempStr;
+    end process;
+    
+    process(game_started)
+    begin
+        if (game_started = '0' or game_over = '1') then
+            displayStart <= "PRESS ANY BUTTON TO START...";
+        else
+            displayStart <= "                            ";
+        end if;
+    end process;
+    
+    process(game_over)
+    begin
+        if (game_over = '1') then
+            displayOVer <= "GAME OVER!";
+        else
+            displayOver <= "          ";
+        end if;
     end process;
     
 	process(clkfx)
     begin
         if rising_edge(clkfx) then
-            if pixOn = '1' then
+            if pixOnScore = '1' or pixOnStart = '1' or pixOnOver = '1' then
                 obj2_red <= b"11";
                 obj2_grn <= b"11";
                 obj2_blu <= b"11";
