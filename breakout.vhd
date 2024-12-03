@@ -56,7 +56,12 @@ architecture arch of breakout is
     constant BLOCKS_START_X: integer := MARGIN + 10 + (GAME_WIDTH - 20 - BLOCK_GRID_WIDTH) / 2;
     constant BLOCKS_START_Y: integer := MARGIN + 10 + (GAME_HEIGHT - 20 - BLOCK_GRID_HEIGHT) / 2 - 40;
     
+    type game_state_type is (START_STATE, PLAY_STATE, GAME_OVER_STATE);
+    signal game_state: game_state_type := START_STATE;
 
+    signal game_over: std_logic := '0';
+    signal game_started: std_logic := '0';
+    signal score_i: integer range 0 to 40 := 0;
 
     signal paddle_x: integer range GAME_LEFT_BOUND to GAME_RIGHT_BOUND := (GAME_LEFT_BOUND + GAME_RIGHT_BOUND) / 2;
     
@@ -67,24 +72,6 @@ architecture arch of breakout is
     
     type block_array is array (0 to (BLOCKS_PER_ROW * NUM_ROWS - 1)) of std_logic;
     signal blocks: block_array := (others => '1');
-    
-    signal game_over: std_logic := '0';
-    signal game_started: std_logic := '0';
-    signal score_i: integer range 0 to 40 := 0;
-
-    -- Helper function for collision detection
-    function is_colliding(
-        x1, y1, w1, h1: integer;  -- First object
-        x2, y2, w2, h2: integer   -- Second object
-    ) return boolean is
-    begin
-        return not (
-            x1 + w1 < x2 or 
-            x1 > x2 + w2 or 
-            y1 + h1 < y2 or 
-            y1 > y2 + h2    
-        );
-    end function;
 
     -- Add these after the existing type declarations
     type block_color is (RED, CYAN, GREEN, WHITE);
@@ -123,6 +110,90 @@ architecture arch of breakout is
         return colors;
     end function;
 
+    -- Types for collision detection
+    type collision_side is (NONE, LEFT, RIGHT, TOP, BOTTOM);
+    type collision_info is record
+        collided: std_logic;
+        side: collision_side;
+    end record;
+
+    -- Improved collision detection function
+    function detect_collision(
+        ball_x, ball_y: integer;  -- Ball center position
+        ball_size: integer;       -- Ball size (radius)
+        obj_x, obj_y: integer;    -- Object position (top-left corner)
+        obj_width, obj_height: integer  -- Object dimensions
+    ) return collision_info is
+        variable result: collision_info;
+        variable ball_left: integer;
+        variable ball_right: integer;
+        variable ball_top: integer;
+        variable ball_bottom: integer;
+        variable obj_right: integer;
+        variable obj_bottom: integer;
+        variable closest_x: integer;
+        variable closest_y: integer;
+        variable dist_squared: integer;
+    begin
+        -- Initialize result
+        result.collided := '0';
+        result.side := NONE;
+        
+        -- Calculate ball bounds
+        ball_left := ball_x - ball_size;
+        ball_right := ball_x + ball_size;
+        ball_top := ball_y - ball_size;
+        ball_bottom := ball_y + ball_size;
+        
+        -- Calculate object bounds
+        obj_right := obj_x + obj_width;
+        obj_bottom := obj_y + obj_height;
+        
+        -- First check if there's any overlap
+        if not (ball_right < obj_x or ball_left > obj_right or
+                ball_bottom < obj_y or ball_top > obj_bottom) then
+            
+            -- Find the closest point on the object to the ball center
+            if ball_x < obj_x then
+                closest_x := obj_x;
+            elsif ball_x > obj_right then
+                closest_x := obj_right;
+            else
+                closest_x := ball_x;
+            end if;
+            
+            if ball_y < obj_y then
+                closest_y := obj_y;
+            elsif ball_y > obj_bottom then
+                closest_y := obj_bottom;
+            else
+                closest_y := ball_y;
+            end if;
+            
+            -- Calculate distance squared
+            dist_squared := (ball_x - closest_x) * (ball_x - closest_x) + 
+                          (ball_y - closest_y) * (ball_y - closest_y);
+            
+            -- If the distance between the closest point and ball center is less than ball_size,
+            -- we have a collision
+            if dist_squared <= ball_size * ball_size then
+                result.collided := '1';
+                
+                -- Determine collision side based on the closest point
+                if closest_x = obj_x then
+                    result.side := LEFT;
+                elsif closest_x = obj_right then
+                    result.side := RIGHT;
+                elsif closest_y = obj_y then
+                    result.side := TOP;
+                else
+                    result.side := BOTTOM;
+                end if;
+            end if;
+        end if;
+        return result;
+    end function;
+
 begin
     score <= score_i;
     game_started_port <= game_started;
@@ -132,7 +203,11 @@ begin
         variable block_x, block_y: integer;
         variable next_ball_x : integer range GAME_LEFT_BOUND to GAME_RIGHT_BOUND;
         variable next_ball_y : integer range GAME_TOP_BOUND to GAME_BOTTOM_BOUND;
+        variable next_ball_dx : integer range -BALL_SPEED_MAX to BALL_SPEED_MAX;
+        variable next_ball_dy : integer range -BALL_SPEED_MAX to BALL_SPEED_MAX;
         variable cleared_blocks_count : integer range 0 to (BLOCKS_PER_ROW * NUM_ROWS) := 0;
+        -- Add collision detection variables here
+        variable collision: collision_info;
     begin
         if rising_edge(clkfx) then
             -- LFSR transformation
@@ -247,28 +322,18 @@ begin
                 end if;
             end if;
             
-            -- Game state update on frame
             if frame = '1' then
-                -- Game restart logic
-                if game_over = '1' and (btn(0) = '1' or btn(1) = '1') then
-                    game_over <= '0';
-                    blocks <= (others => '1');
-                    block_colors <= init_random_colors(random_seed);  -- Initialize random colors
-                    score_i <= 0;
-                    ball_x <= paddle_x;
-                    ball_y <= PADDLE_Y - BALL_SIZE - 1;
-                end if;
-                
-                if game_over = '0' then
-                    -- Game start logic
-                    if game_started = '0' then
+                case game_state is
+                    when START_STATE =>
+                        game_started <= '0';
                         ball_x <= paddle_x;
                         ball_y <= PADDLE_Y - BALL_SIZE - 1;
                         blocks <= (others => '1');
                         block_colors <= init_random_colors(random_seed);  -- Initialize random colors
                         score_i <= 0;
                         if btn(0) = '1' or btn(1) = '1' then
-                            game_started <= '1';
+                            -- game_started <= '1';
+                            game_state <= PLAY_STATE;
                             ball_dy <= -BALL_SPEED_INIT;
                             if btn(0) = '1' then -- initial ball direction depends on button pressed
                                 ball_dx <= -BALL_SPEED_INIT;
@@ -276,22 +341,109 @@ begin
                                 ball_dx <= BALL_SPEED_INIT;
                             end if;
                         end if;
-                    end if;
-                    
-                    -- Paddle movement with boundary checking
-                    if btn(1) = '1' and btn(0) = '1' then
-                        paddle_x <= paddle_x;
-                    elsif btn(1) = '1' and paddle_x < GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1 then
-                        paddle_x <= paddle_x + PADDLE_SPEED;
-                    elsif btn(0) = '1' and paddle_x > GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1 then
-                        paddle_x <= paddle_x - PADDLE_SPEED;
-                    end if;
-                    
-                    -- Ball movement and collision logic
-                    if game_started = '1' then
+
+
+
+                    when PLAY_STATE =>
+                        game_started <= '1';
+                        game_over <= '0';
+
+                        -- Paddle movement with boundary checking
+                        if btn(1) = '1' and btn(0) = '1' then
+                            paddle_x <= paddle_x;
+                        elsif btn(1) = '1' and paddle_x < GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1 then
+                            paddle_x <= paddle_x + PADDLE_SPEED;
+                        elsif btn(0) = '1' and paddle_x > GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1 then
+                            paddle_x <= paddle_x - PADDLE_SPEED;
+                        end if;
+
                         next_ball_x := ball_x + ball_dx;
                         next_ball_y := ball_y + ball_dy;
                         
+                        -- Ball collision with paddle
+                        collision := detect_collision(
+                            next_ball_x, next_ball_y, BALL_SIZE,
+                            paddle_x - PADDLE_WIDTH/2, PADDLE_Y,
+                            PADDLE_WIDTH, PADDLE_HEIGHT
+                        );
+                        
+                        if collision.collided = '1' then
+                            if (btn(1) = '1') and (paddle_x < GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1) and (ball_dx + 1 <= BALL_SPEED_MAX) then
+                                ball_dx <= ball_dx + 1;
+                            elsif (btn(0) = '1') and (paddle_x > GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1) and (ball_dx - 1 >= -BALL_SPEED_MAX) then
+                                ball_dx <= ball_dx - 1;
+                            else
+                                ball_dx <= ball_dx;
+                            end if;
+                            ball_dy <= -abs(ball_dy);
+                        end if;
+                        
+                        -- Ball collision with blocks
+                        for i in 0 to (BLOCKS_PER_ROW * NUM_ROWS - 1) loop
+                            if blocks(i) = '1' then
+                                block_x := BLOCKS_START_X + (i mod BLOCKS_PER_ROW) * (BLOCK_WIDTH + 10);
+                                block_y := BLOCKS_START_Y + (i / BLOCKS_PER_ROW) * (BLOCK_HEIGHT + 10);
+                                
+                                collision := detect_collision(
+                                    next_ball_x, next_ball_y, BALL_SIZE,
+                                    block_x, block_y, BLOCK_WIDTH, BLOCK_HEIGHT
+                                );
+                                
+                                if collision.collided = '1' then
+                                    blocks(i) <= '0';  -- Destroy block
+                                    
+                                    -- Speed modifications based on block color
+                                    case block_colors(i) is
+                                        when RED =>
+                                            -- Increase speed magnitude by 1
+                                            if ball_dx > 0 and ball_dx + 1 <= BALL_SPEED_MAX then
+                                                next_ball_dx := ball_dx + 1;
+                                            elsif ball_dx < 0 and ball_dx - 1 >= -BALL_SPEED_MAX then
+                                                next_ball_dx := ball_dx - 1;
+                                            end if;
+                                            
+                                            if ball_dy > 0 and ball_dy + 1 <= BALL_SPEED_MAX then
+                                                next_ball_dy := ball_dy + 1;
+                                            elsif ball_dy < 0 and ball_dy - 1 >= -BALL_SPEED_MAX then
+                                                next_ball_dy := ball_dy - 1;
+                                            end if;
+                                            
+                                        when CYAN =>
+                                            -- Decrease speed magnitude by 1
+                                            if ball_dx > 0 then
+                                                next_ball_dx := ball_dx - 1;
+                                            elsif ball_dx < 0 then
+                                                next_ball_dx := ball_dx + 1;
+                                            end if;
+                                            
+                                            if ball_dy > 1  then
+                                                next_ball_dy := ball_dy - 1;
+                                            elsif ball_dy < -1 then
+                                                next_ball_dy := ball_dy + 1;
+                                            end if;
+                                            
+                                        when others =>
+                                            null; -- No speed change for other colors
+                                    end case;
+
+                                    -- Handle collision direction
+                                    case collision.side is
+                                        when LEFT =>
+                                            ball_dx <= -abs(next_ball_dx);
+                                        when RIGHT =>
+                                            ball_dx <= abs(next_ball_dx);
+                                        when TOP =>
+                                            ball_dy <= -abs(next_ball_dy);
+                                        when BOTTOM =>
+                                            ball_dy <= abs(next_ball_dy);
+                                        when NONE =>
+                                            null;
+                                    end case;
+                                    
+                                end if;
+                            end if;
+                        end loop;
+
                         -- Horizontal boundary checking
                         if next_ball_x - BALL_SIZE <= GAME_LEFT_BOUND then
                             next_ball_x := GAME_LEFT_BOUND + BALL_SIZE;
@@ -307,65 +459,165 @@ begin
                             ball_dy <= abs(ball_dy);
                         elsif next_ball_y + BALL_SIZE >= GAME_BOTTOM_BOUND then
                             next_ball_y := GAME_BOTTOM_BOUND - BALL_SIZE;
-                            game_over <= '1';
+                            -- game_over <= '1';
+                            game_state <= GAME_OVER_STATE;
                         end if;
-                        
+
                         -- Update ball position
                         ball_x <= next_ball_x;
                         ball_y <= next_ball_y;
-                        
-                        -- Ball collision with paddle
-                        if is_colliding(
-                            ball_x - BALL_SIZE, ball_y - BALL_SIZE, BALL_SIZE*2, BALL_SIZE*2,
-                            paddle_x - PADDLE_WIDTH/2, PADDLE_Y, PADDLE_WIDTH, PADDLE_HEIGHT
-                        ) then
-                            ball_dy <= -abs(ball_dy);
-                            
-                            -- Adjust ball angle based on paddle hit location
-                            if ball_x < paddle_x - PADDLE_WIDTH/4 then
-                                ball_dx <= -abs(ball_dx);
-                            elsif ball_x > paddle_x + PADDLE_WIDTH/4 then
-                                ball_dx <= abs(ball_dx);
+
+
+
+                    when GAME_OVER_STATE =>
+                        game_started <= '0';
+                        game_over <= '1';
+                        -- Game restart logic
+                        if game_over = '1' and (btn(0) = '1' or btn(1) = '1') then
+                            -- game_over <= '0';
+                            game_state <= PLAY_STATE;
+                            blocks <= (others => '1');
+                            block_colors <= init_random_colors(random_seed);  -- Initialize random colors
+                            score_i <= 0;
+                            ball_x <= paddle_x;
+                            ball_y <= PADDLE_Y - BALL_SIZE - 1;
+                            ball_dy <= -BALL_SPEED_INIT;
+                            if btn(0) = '1' then -- initial ball direction depends on button pressed
+                                ball_dx <= -BALL_SPEED_INIT;
+                            else
+                                ball_dx <= BALL_SPEED_INIT;
                             end if;
                         end if;
-                        
-                        -- Ball collision with blocks
-                        for i in 0 to (BLOCKS_PER_ROW * NUM_ROWS - 1) loop
-                            if blocks(i) = '1' then
-                                block_x := BLOCKS_START_X + (i mod BLOCKS_PER_ROW) * (BLOCK_WIDTH + 10);
-                                block_y := BLOCKS_START_Y + (i / BLOCKS_PER_ROW) * (BLOCK_HEIGHT + 10);
-                                
-                                if is_colliding(
-                                    ball_x - BALL_SIZE, ball_y - BALL_SIZE, BALL_SIZE*2, BALL_SIZE*2,
-                                    block_x, block_y, BLOCK_WIDTH, BLOCK_HEIGHT
-                                ) then
-                                    blocks(i) <= '0';
-                                    -- Horizontal collision detection
-                                    if ball_x + BALL_SIZE <= block_x then
-                                        next_ball_x := block_x - BALL_SIZE;
-                                        ball_dx <= -abs(ball_dx);
-                                        -- blocks(i) <= '0';
-                                    elsif ball_x - BALL_SIZE >= block_x + BLOCK_WIDTH then
-                                        next_ball_x := block_x + BLOCK_WIDTH + BALL_SIZE;
-                                        ball_dx <= abs(ball_dx);
-                                        -- blocks(i) <= '0';
-                                    
-                                    -- Vertical collision detection
-                                    elsif ball_y + BALL_SIZE <= block_y then
-                                        next_ball_y := block_y - BALL_SIZE;
-                                        ball_dy <= -abs(ball_dy);
-                                        -- blocks(i) <= '0';
-                                    elsif ball_y - BALL_SIZE >= block_y + BLOCK_HEIGHT then
-                                        next_ball_y := block_y + BLOCK_HEIGHT + BALL_SIZE;
-                                        ball_dy <= abs(ball_dy);
-                                        -- blocks(i) <= '0';
-                                    end if;
-                                end if;
-                            end if;
-                        end loop;
-                    end if;
-                end if;
+                end case;
             end if;
+
+            -- Game state update on frame
+            -- if frame = '1' then
+            --     -- Game restart logic
+            --     if game_over = '1' and (btn(0) = '1' or btn(1) = '1') then
+            --         game_over <= '0';
+            --         blocks <= (others => '1');
+            --         block_colors <= init_random_colors(random_seed);  -- Initialize random colors
+            --         score_i <= 0;
+            --         ball_x <= paddle_x;
+            --         ball_y <= PADDLE_Y - BALL_SIZE - 1;
+            --         ball_dy <= -BALL_SPEED_INIT;
+            --         if btn(0) = '1' then -- initial ball direction depends on button pressed
+            --             ball_dx <= -BALL_SPEED_INIT;
+            --         else
+            --             ball_dx <= BALL_SPEED_INIT;
+            --         end if;
+            --     end if;
+                
+            --     if game_over = '0' then
+            --         -- Game start logic
+            --         if game_started = '0' then
+            --             ball_x <= paddle_x;
+            --             ball_y <= PADDLE_Y - BALL_SIZE - 1;
+            --             blocks <= (others => '1');
+            --             block_colors <= init_random_colors(random_seed);  -- Initialize random colors
+            --             score_i <= 0;
+            --             if btn(0) = '1' or btn(1) = '1' then
+            --                 game_started <= '1';
+            --                 ball_dy <= -BALL_SPEED_INIT;
+            --                 if btn(0) = '1' then -- initial ball direction depends on button pressed
+            --                     ball_dx <= -BALL_SPEED_INIT;
+            --                 else
+            --                     ball_dx <= BALL_SPEED_INIT;
+            --                 end if;
+            --             end if;
+            --         end if;
+                    
+            --         -- Paddle movement with boundary checking
+            --         if btn(1) = '1' and btn(0) = '1' then
+            --             paddle_x <= paddle_x;
+            --         elsif btn(1) = '1' and paddle_x < GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1 then
+            --             paddle_x <= paddle_x + PADDLE_SPEED;
+            --         elsif btn(0) = '1' and paddle_x > GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1 then
+            --             paddle_x <= paddle_x - PADDLE_SPEED;
+            --         end if;
+                    
+            --         -- Ball movement and collision logic
+            --         if game_started = '1' then
+            --             next_ball_x := ball_x + ball_dx;
+            --             next_ball_y := ball_y + ball_dy;
+                        
+            --             -- Horizontal boundary checking
+            --             if next_ball_x - BALL_SIZE <= GAME_LEFT_BOUND then
+            --                 next_ball_x := GAME_LEFT_BOUND + BALL_SIZE;
+            --                 ball_dx <= abs(ball_dx);
+            --             elsif next_ball_x + BALL_SIZE >= GAME_RIGHT_BOUND then
+            --                 next_ball_x := GAME_RIGHT_BOUND - BALL_SIZE;
+            --                 ball_dx <= -abs(ball_dx);
+            --             end if;
+                        
+            --             -- Vertical boundary checking
+            --             if next_ball_y - BALL_SIZE <= GAME_TOP_BOUND then
+            --                 next_ball_y := GAME_TOP_BOUND + BALL_SIZE;
+            --                 ball_dy <= abs(ball_dy);
+            --             elsif next_ball_y + BALL_SIZE >= GAME_BOTTOM_BOUND then
+            --                 next_ball_y := GAME_BOTTOM_BOUND - BALL_SIZE;
+            --                 game_over <= '1';
+            --             end if;
+                        
+            --             -- Ball collision with paddle
+            --             collision := detect_collision(
+            --                 next_ball_x, next_ball_y, BALL_SIZE,
+            --                 paddle_x - PADDLE_WIDTH/2, PADDLE_Y,
+            --                 PADDLE_WIDTH, PADDLE_HEIGHT
+            --             );
+                        
+            --             if collision.collided = '1' then
+            --                 if btn(1) = '1' and paddle_x < GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1 then
+            --                     ball_dx <= ball_dx + 1;
+            --                 elsif btn(0) = '1' and paddle_x > GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1 then
+            --                     ball_dx <= ball_dx - 1;
+            --                 else
+            --                     ball_dx <= ball_dx;
+            --                 end if;
+            --                 ball_dy <= -abs(ball_dy);
+            --             end if;
+                        
+            --             -- Ball collision with blocks
+            --             for i in 0 to (BLOCKS_PER_ROW * NUM_ROWS - 1) loop
+            --                 if blocks(i) = '1' then
+            --                     block_x := BLOCKS_START_X + (i mod BLOCKS_PER_ROW) * (BLOCK_WIDTH + 10);
+            --                     block_y := BLOCKS_START_Y + (i / BLOCKS_PER_ROW) * (BLOCK_HEIGHT + 10);
+                                
+            --                     collision := detect_collision(
+            --                         next_ball_x, next_ball_y, BALL_SIZE,
+            --                         block_x, block_y, BLOCK_WIDTH, BLOCK_HEIGHT
+            --                     );
+                                
+            --                     if collision.collided = '1' then
+            --                         blocks(i) <= '0';  -- Destroy block
+                                    
+            --                         case collision.side is
+            --                             when LEFT =>
+            --                                 ball_dx <= -abs(ball_dx);
+            --                                 -- next_ball_x := block_x - BALL_SIZE;
+            --                             when RIGHT =>
+            --                                 ball_dx <= abs(ball_dx);
+            --                                 -- next_ball_x := block_x + BLOCK_WIDTH + BALL_SIZE;
+            --                             when TOP =>
+            --                                 ball_dy <= -abs(ball_dy);
+            --                                 -- next_ball_y := block_y - BALL_SIZE;
+            --                             when BOTTOM =>
+            --                                 ball_dy <= abs(ball_dy);
+            --                                 -- next_ball_y := block_y + BLOCK_HEIGHT + BALL_SIZE;
+            --                             when NONE =>
+            --                                 null;
+            --                         end case;
+            --                     end if;
+            --                 end if;
+            --             end loop;
+
+            --             -- Update ball position
+            --             ball_x <= next_ball_x;
+            --             ball_y <= next_ball_y;
+            --         end if;
+            --     end if;
+            -- end if;
 
             -- Count cleared blocks
             cleared_blocks_count := 0;
