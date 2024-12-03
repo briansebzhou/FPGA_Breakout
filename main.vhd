@@ -53,7 +53,7 @@ architecture arch of main is
 			obj1_red:  out std_logic_vector(1 downto 0);
 			obj1_grn:  out std_logic_vector(1 downto 0);
 			obj1_blu:  out std_logic_vector(1 downto 0);
-			score:     out integer;
+			score:     out integer range 0 to 40;
 			game_started_port: out std_logic;
             game_over_port:    out std_logic
 		);
@@ -288,7 +288,7 @@ begin
         displayScore <= "SCORE: " & tempStr;
     end process;
     
-    process(game_started)
+    process(game_started, game_over)
     begin
         if (game_started = '0' or game_over = '1') then
             displayStart <= "PRESS ANY BUTTON TO START...";

@@ -3,9 +3,9 @@ Configuration Memory information
 ===================================
 File Format        MCS
 Interface          SPIX4
-Size               4M
+Size               2M
 Start Address      0x00000000
-End Address        0x003FFFFF
+End Address        0x001FFFFF
 
 Addr1         Addr2         Date                    File(s)
-0x00000000    0x000836EF    Dec  2 19:21:01 2024    C:/Users/Xingyu_Brian_Zhou/Documents/BaiduSyncdisk/0A Curriculum/FPGA Lab/Project/FPGA_Breakout/breakout/breakout.runs/impl_1/main.bit
+0x00000000    0x0005EBB7    Dec  2 22:01:19 2024    C:/Users/Xingyu_Brian_Zhou/Documents/BaiduSyncdisk/0A Curriculum/FPGA Lab/Project/FPGA_Breakout/breakout/breakout.runs/impl_1/main.bit

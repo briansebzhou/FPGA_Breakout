@@ -12,7 +12,7 @@ entity breakout is
         obj1_red:  out std_logic_vector(1 downto 0);
         obj1_grn:  out std_logic_vector(1 downto 0);
         obj1_blu:  out std_logic_vector(1 downto 0);
-        score:     out integer;
+        score:     out integer range 0 to 40;
         game_started_port: out std_logic;
         game_over_port:    out std_logic
     );
@@ -39,8 +39,9 @@ architecture arch of breakout is
     constant PADDLE_Y: integer := GAME_BOTTOM_BOUND - PADDLE_HEIGHT - 10;
     
     constant BALL_SIZE: integer := 8;
-    constant BALL_SPEED_X: integer := 1;
-    constant BALL_SPEED_Y: integer := 1;
+    constant BALL_SPEED_INIT:   integer := 2;
+    constant BALL_SPEED_MIN:    integer := 1;
+    constant BALL_SPEED_MAX:    integer := 4;
     
     constant BLOCK_WIDTH: integer := 40;
     constant BLOCK_HEIGHT: integer := 15;
@@ -61,8 +62,8 @@ architecture arch of breakout is
     
     signal ball_x: integer range GAME_LEFT_BOUND to GAME_RIGHT_BOUND := (GAME_LEFT_BOUND + GAME_RIGHT_BOUND) / 2;
     signal ball_y: integer range GAME_TOP_BOUND to GAME_BOTTOM_BOUND := PADDLE_Y - BALL_SIZE - 1;
-    signal ball_dx: integer range -2 to 2 := BALL_SPEED_X;
-    signal ball_dy: integer range -2 to 2 := -BALL_SPEED_Y;
+    signal ball_dx: integer range -BALL_SPEED_MAX to BALL_SPEED_MAX := BALL_SPEED_INIT;
+    signal ball_dy: integer range -BALL_SPEED_MAX to BALL_SPEED_MAX := -BALL_SPEED_INIT;
     
     type block_array is array (0 to (BLOCKS_PER_ROW * NUM_ROWS - 1)) of std_logic;
     signal blocks: block_array := (others => '1');
@@ -85,6 +86,43 @@ architecture arch of breakout is
         );
     end function;
 
+    -- Add these after the existing type declarations
+    type block_color is (RED, CYAN, GREEN, WHITE);
+    type block_color_array is array (0 to (BLOCKS_PER_ROW * NUM_ROWS - 1)) of block_color;
+    signal block_colors: block_color_array;
+
+    -- Modify the random seed signal to be updated in the process
+    signal random_seed: std_logic_vector(15 downto 0) := x"ABCD";
+
+    -- Modify the function signature to include random_seed as an input
+    function init_random_colors(seed: std_logic_vector(15 downto 0)) return block_color_array is
+        variable colors: block_color_array;
+        variable current_seed: std_logic_vector(15 downto 0);
+        variable rand_value: integer range 0 to 3;
+    begin
+        current_seed := seed;
+
+        for i in colors'range loop
+            -- Perform LFSR transformation
+            current_seed := current_seed(14 downto 0) & 
+                            (current_seed(15) xor current_seed(14) xor 
+                             current_seed(12) xor current_seed(3));
+            
+            -- Use the lowest 2 bits to generate color
+            rand_value := to_integer(unsigned(current_seed(1 downto 0)));
+            
+            case rand_value is
+                when 0 => colors(i) := RED;
+                when 1 => colors(i) := CYAN;
+                when 2 => colors(i) := GREEN;
+                when 3 => colors(i) := WHITE;
+                when others => colors(i) := WHITE;
+            end case;
+        end loop;
+
+        return colors;
+    end function;
+
 begin
     score <= score_i;
     game_started_port <= game_started;
@@ -97,9 +135,15 @@ begin
         variable cleared_blocks_count : integer range 0 to (BLOCKS_PER_ROW * NUM_ROWS) := 0;
     begin
         if rising_edge(clkfx) then
+            -- LFSR transformation
+            random_seed <= random_seed(14 downto 0) & 
+                           (random_seed(15) xor random_seed(14) xor 
+                            random_seed(12) xor random_seed(3));
+            
             -- Reset game logic
             if game_over = '1' and (btn(0) = '1' or btn(1) = '1') then
                 blocks <= (others => '1');
+                block_colors <= init_random_colors(random_seed);  -- Initialize random colors
                 cleared_blocks_count := 0;
             end if;
 
@@ -146,13 +190,22 @@ begin
                         obj1_grn <= "10";
                         obj1_blu <= "10";
                     else
-                        -- Color based on row
-                        case (i / BLOCKS_PER_ROW) is
-                            when 0 => obj1_red <= "11"; -- Red row
-                            when 1 => obj1_grn <= "11"; -- Green row
-                            when 2 => obj1_blu <= "11"; -- Blue row
-                            when others => 
-                                obj1_red <= "11";      -- White row
+                        -- Color based on block_colors array
+                        case block_colors(i) is
+                            when RED => 
+                                obj1_red <= "11";
+                                obj1_grn <= "00";
+                                obj1_blu <= "00";
+                            when CYAN =>
+                                obj1_red <= "00";
+                                obj1_grn <= "11";
+                                obj1_blu <= "11";
+                            when GREEN =>
+                                obj1_red <= "00";
+                                obj1_grn <= "11";
+                                obj1_blu <= "00";
+                            when WHITE =>
+                                obj1_red <= "11";
                                 obj1_grn <= "11";
                                 obj1_blu <= "11";
                         end case;
@@ -199,14 +252,32 @@ begin
                 -- Game restart logic
                 if game_over = '1' and (btn(0) = '1' or btn(1) = '1') then
                     game_over <= '0';
-                    -- game_started <= '0'; // comment out to avoid glitch in transition from game over to start
                     blocks <= (others => '1');
+                    block_colors <= init_random_colors(random_seed);  -- Initialize random colors
                     score_i <= 0;
                     ball_x <= paddle_x;
                     ball_y <= PADDLE_Y - BALL_SIZE - 1;
                 end if;
                 
                 if game_over = '0' then
+                    -- Game start logic
+                    if game_started = '0' then
+                        ball_x <= paddle_x;
+                        ball_y <= PADDLE_Y - BALL_SIZE - 1;
+                        blocks <= (others => '1');
+                        block_colors <= init_random_colors(random_seed);  -- Initialize random colors
+                        score_i <= 0;
+                        if btn(0) = '1' or btn(1) = '1' then
+                            game_started <= '1';
+                            ball_dy <= -BALL_SPEED_INIT;
+                            if btn(0) = '1' then -- initial ball direction depends on button pressed
+                                ball_dx <= -BALL_SPEED_INIT;
+                            else
+                                ball_dx <= BALL_SPEED_INIT;
+                            end if;
+                        end if;
+                    end if;
+                    
                     -- Paddle movement with boundary checking
                     if btn(1) = '1' and btn(0) = '1' then
                         paddle_x <= paddle_x;
@@ -214,18 +285,6 @@ begin
                         paddle_x <= paddle_x + PADDLE_SPEED;
                     elsif btn(0) = '1' and paddle_x > GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1 then
                         paddle_x <= paddle_x - PADDLE_SPEED;
-                    end if;
-                    
-                    -- Game start logic
-                    if game_started = '0' then
-                        ball_x <= paddle_x;
-                        ball_y <= PADDLE_Y - BALL_SIZE - 1;
-                        
-                        if btn(0) = '1' or btn(1) = '1' then
-                            game_started <= '1';
-                            ball_dx <= -1;
-                            ball_dy <= -BALL_SPEED_Y;
-                        end if;
                     end if;
                     
                     -- Ball movement and collision logic
@@ -280,25 +339,26 @@ begin
                                     ball_x - BALL_SIZE, ball_y - BALL_SIZE, BALL_SIZE*2, BALL_SIZE*2,
                                     block_x, block_y, BLOCK_WIDTH, BLOCK_HEIGHT
                                 ) then
+                                    blocks(i) <= '0';
                                     -- Horizontal collision detection
                                     if ball_x + BALL_SIZE <= block_x then
                                         next_ball_x := block_x - BALL_SIZE;
                                         ball_dx <= -abs(ball_dx);
-                                        blocks(i) <= '0';
+                                        -- blocks(i) <= '0';
                                     elsif ball_x - BALL_SIZE >= block_x + BLOCK_WIDTH then
                                         next_ball_x := block_x + BLOCK_WIDTH + BALL_SIZE;
                                         ball_dx <= abs(ball_dx);
-                                        blocks(i) <= '0';
+                                        -- blocks(i) <= '0';
                                     
                                     -- Vertical collision detection
                                     elsif ball_y + BALL_SIZE <= block_y then
                                         next_ball_y := block_y - BALL_SIZE;
                                         ball_dy <= -abs(ball_dy);
-                                        blocks(i) <= '0';
+                                        -- blocks(i) <= '0';
                                     elsif ball_y - BALL_SIZE >= block_y + BLOCK_HEIGHT then
                                         next_ball_y := block_y + BLOCK_HEIGHT + BALL_SIZE;
                                         ball_dy <= abs(ball_dy);
-                                        blocks(i) <= '0';
+                                        -- blocks(i) <= '0';
                                     end if;
                                 end if;
                             end if;
