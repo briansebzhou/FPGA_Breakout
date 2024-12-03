@@ -357,8 +357,11 @@ begin
                             paddle_x <= paddle_x - PADDLE_SPEED;
                         end if;
 
+                        -- Predict next ball position
                         next_ball_x := ball_x + ball_dx;
                         next_ball_y := ball_y + ball_dy;
+                        next_ball_dx := ball_dx;
+                        next_ball_dy := ball_dy;
                         
                         -- Ball collision with paddle
                         collision := detect_collision(
@@ -368,14 +371,16 @@ begin
                         );
                         
                         if collision.collided = '1' then
+                            -- Modify ball speed based on paddle movement
                             if (btn(1) = '1') and (paddle_x < GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1) and (ball_dx + 1 <= BALL_SPEED_MAX) then
-                                ball_dx <= ball_dx + 1;
+                                next_ball_dx := ball_dx + 1;
                             elsif (btn(0) = '1') and (paddle_x > GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1) and (ball_dx - 1 >= -BALL_SPEED_MAX) then
-                                ball_dx <= ball_dx - 1;
-                            else
-                                ball_dx <= ball_dx;
+                                next_ball_dx := ball_dx - 1;
                             end if;
-                            ball_dy <= -abs(ball_dy);
+                            
+                            -- Reverse vertical direction and apply modified horizontal speed
+                            next_ball_dy := -abs(ball_dy);
+                            next_ball_dx := next_ball_dx;
                         end if;
                         
                         -- Ball collision with blocks
@@ -396,50 +401,49 @@ begin
                                     case block_colors(i) is
                                         when RED =>
                                             -- Increase speed magnitude by 1
-                                            if ball_dx > 0 and ball_dx + 1 <= BALL_SPEED_MAX then
-                                                next_ball_dx := ball_dx + 1;
-                                            elsif ball_dx < 0 and ball_dx - 1 >= -BALL_SPEED_MAX then
-                                                next_ball_dx := ball_dx - 1;
+                                            if next_ball_dx > 0 and next_ball_dx + 1 <= BALL_SPEED_MAX then
+                                                next_ball_dx := next_ball_dx + 1;
+                                            elsif next_ball_dx < 0 and next_ball_dx - 1 >= -BALL_SPEED_MAX then
+                                                next_ball_dx := next_ball_dx - 1;
                                             end if;
                                             
-                                            if ball_dy > 0 and ball_dy + 1 <= BALL_SPEED_MAX then
-                                                next_ball_dy := ball_dy + 1;
-                                            elsif ball_dy < 0 and ball_dy - 1 >= -BALL_SPEED_MAX then
-                                                next_ball_dy := ball_dy - 1;
+                                            if next_ball_dy > 0 and next_ball_dy + 1 <= BALL_SPEED_MAX then
+                                                next_ball_dy := next_ball_dy + 1;
+                                            elsif next_ball_dy < 0 and next_ball_dy - 1 >= -BALL_SPEED_MAX then
+                                                next_ball_dy := next_ball_dy - 1;
                                             end if;
                                             
                                         when CYAN =>
                                             -- Decrease speed magnitude by 1
-                                            if ball_dx > 0 then
-                                                next_ball_dx := ball_dx - 1;
-                                            elsif ball_dx < 0 then
-                                                next_ball_dx := ball_dx + 1;
+                                            if next_ball_dx > 0 then
+                                                next_ball_dx := next_ball_dx - 1;
+                                            elsif next_ball_dx < 0 then
+                                                next_ball_dx := next_ball_dx + 1;
                                             end if;
                                             
-                                            if ball_dy > 1  then
-                                                next_ball_dy := ball_dy - 1;
-                                            elsif ball_dy < -1 then
-                                                next_ball_dy := ball_dy + 1;
+                                            if next_ball_dy > 1 then
+                                                next_ball_dy := next_ball_dy - 1;
+                                            elsif next_ball_dy < -1 then
+                                                next_ball_dy := next_ball_dy + 1;
                                             end if;
                                             
                                         when others =>
-                                            null; -- No speed change for other colors
+                                            null;
                                     end case;
 
                                     -- Handle collision direction
                                     case collision.side is
                                         when LEFT =>
-                                            ball_dx <= -abs(next_ball_dx);
+                                            next_ball_dx := -abs(next_ball_dx);
                                         when RIGHT =>
-                                            ball_dx <= abs(next_ball_dx);
+                                            next_ball_dx := abs(next_ball_dx);
                                         when TOP =>
-                                            ball_dy <= -abs(next_ball_dy);
+                                            next_ball_dy := -abs(next_ball_dy);
                                         when BOTTOM =>
-                                            ball_dy <= abs(next_ball_dy);
+                                            next_ball_dy := abs(next_ball_dy);
                                         when NONE =>
                                             null;
                                     end case;
-                                    
                                 end if;
                             end if;
                         end loop;
@@ -447,25 +451,26 @@ begin
                         -- Horizontal boundary checking
                         if next_ball_x - BALL_SIZE <= GAME_LEFT_BOUND then
                             next_ball_x := GAME_LEFT_BOUND + BALL_SIZE;
-                            ball_dx <= abs(ball_dx);
+                            next_ball_dx := abs(next_ball_dx);
                         elsif next_ball_x + BALL_SIZE >= GAME_RIGHT_BOUND then
                             next_ball_x := GAME_RIGHT_BOUND - BALL_SIZE;
-                            ball_dx <= -abs(ball_dx);
+                            next_ball_dx := -abs(next_ball_dx);
                         end if;
                         
                         -- Vertical boundary checking
                         if next_ball_y - BALL_SIZE <= GAME_TOP_BOUND then
                             next_ball_y := GAME_TOP_BOUND + BALL_SIZE;
-                            ball_dy <= abs(ball_dy);
+                            next_ball_dy := abs(next_ball_dy);
                         elsif next_ball_y + BALL_SIZE >= GAME_BOTTOM_BOUND then
                             next_ball_y := GAME_BOTTOM_BOUND - BALL_SIZE;
-                            -- game_over <= '1';
                             game_state <= GAME_OVER_STATE;
                         end if;
 
-                        -- Update ball position
+                        -- Update ball position and velocity
                         ball_x <= next_ball_x;
                         ball_y <= next_ball_y;
+                        ball_dx <= next_ball_dx;
+                        ball_dy <= next_ball_dy;
 
 
 
