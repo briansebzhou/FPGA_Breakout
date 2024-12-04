@@ -318,7 +318,8 @@ begin
                 hcount < to_unsigned(random_blk_x + BLOCK_WIDTH, 10) and
                 vcount >= to_unsigned(random_blk_y, 10) and
                 vcount < to_unsigned(random_blk_y + BLOCK_HEIGHT, 10) then
-                    obj1_grn <= "11";
+                    obj1_red <= "11";
+                    obj1_blu <= "11";
             end if;
             -- Draw paddle
             if hcount >= to_unsigned(paddle_x - PADDLE_WIDTH/2, 10) and
@@ -376,16 +377,15 @@ begin
                             end if;
                         end if;
 
-
-
                     when PLAY_STATE =>
                         game_started <= '1';
                         game_over <= '0';
+                        victory <= '0';
                         random_blk <= '1';
 
                         -- Paddle movement with boundary checking
                         if btn(1) = '1' and btn(0) = '1' then
-                            paddle_x <= paddle_x;
+                            paddle_x <= ball_x;
                         elsif btn(1) = '1' and paddle_x < GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1 then
                             paddle_x <= paddle_x + PADDLE_SPEED;
                         elsif btn(0) = '1' and paddle_x > GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1 then
