@@ -19,6 +19,37 @@ set_property -dict { PACKAGE_PIN J18   IOSTANDARD LVCMOS33 } [get_ports { tx }];
 set_property -dict { PACKAGE_PIN A18   IOSTANDARD LVCMOS33 } [get_ports { btn[0] }]; #IO_L19N_T3_VREF_16 Sch=btn[0]
 set_property -dict { PACKAGE_PIN B18   IOSTANDARD LVCMOS33 } [get_ports { btn[1] }]; #IO_L19P_T3_16 Sch=btn[1]
 
+## Multicycle Paths for time requirements
+# set_multicycle_path -setup 4 -from [get_pins */ball_dx_reg[*]/C] -to [get_pins */ball_dx_reg[*]/D]
+# set_multicycle_path -hold  3 -from [get_pins */ball_dx_reg[*]/C] -to [get_pins */ball_dx_reg[*]/D]
+# set_multicycle_path -setup 4 -from [get_pins */ball_dx_reg[*]/C] -to [get_pins */ball_dy_reg[*]/D]
+# set_multicycle_path -hold  3 -from [get_pins */ball_dx_reg[*]/C] -to [get_pins */ball_dy_reg[*]/D]
+
+# set_multicycle_path -setup 4 -from [get_pins */ball_dy_reg[*]/C] -to [get_pins */ball_dy_reg[*]/D]
+# set_multicycle_path -hold  3 -from [get_pins */ball_dy_reg[*]/C] -to [get_pins */ball_dy_reg[*]/D]
+# set_multicycle_path -setup 4 -from [get_pins */ball_dy_reg[*]/C] -to [get_pins */ball_dx_reg[*]/D]
+# set_multicycle_path -hold  3 -from [get_pins */ball_dy_reg[*]/C] -to [get_pins */ball_dx_reg[*]/D]
+
+# set_multicycle_path -setup 4 -from [get_pins */ball_x_reg[*]/C] -to [get_pins */ball_dx_reg[*]/D]
+# set_multicycle_path -hold  3 -from [get_pins */ball_x_reg[*]/C] -to [get_pins */ball_dx_reg[*]/D]
+# set_multicycle_path -setup 4 -from [get_pins */ball_x_reg[*]/C] -to [get_pins */ball_dy_reg[*]/D]
+# set_multicycle_path -hold  3 -from [get_pins */ball_x_reg[*]/C] -to [get_pins */ball_dy_reg[*]/D]
+
+# set_multicycle_path -setup 4 -from [get_pins */ball_y_reg[*]/C] -to [get_pins */ball_dy_reg[*]/D]
+# set_multicycle_path -hold  3 -from [get_pins */ball_y_reg[*]/C] -to [get_pins */ball_dy_reg[*]/D]
+# set_multicycle_path -setup 4 -from [get_pins */ball_y_reg[*]/C] -to [get_pins */ball_dx_reg[*]/D]
+# set_multicycle_path -hold  3 -from [get_pins */ball_y_reg[*]/C] -to [get_pins */ball_dx_reg[*]/D]
+
+# set_multicycle_path -setup 4 -from [get_pins */paddle_x_reg[*]/C] -to [get_pins */ball_dx_reg[*]/D]
+# set_multicycle_path -hold  3 -from [get_pins */paddle_x_reg[*]/C] -to [get_pins */ball_dx_reg[*]/D] 
+# set_multicycle_path -setup 4 -from [get_pins */paddle_x_reg[*]/C] -to [get_pins */ball_dy_reg[*]/D]
+# set_multicycle_path -hold  3 -from [get_pins */paddle_x_reg[*]/C] -to [get_pins */ball_dy_reg[*]/D]
+
+# set_multicycle_path -setup 4 -from [get_pins */block_colors_reg[*][*]/C] -to [get_pins */ball_dx_reg[*]/D]
+# set_multicycle_path -hold  3 -from [get_pins */block_colors_reg[*][*]/C] -to [get_pins */ball_dx_reg[*]/D]
+# set_multicycle_path -setup 4 -from [get_pins */block_colors_reg[*][*]/C] -to [get_pins */ball_dy_reg[*]/D]
+# set_multicycle_path -hold  3 -from [get_pins */block_colors_reg[*][*]/C] -to [get_pins */ball_dy_reg[*]/D]
+
 ## Place bit file in flash
 set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
 set_property BITSTREAM.CONFIG.CONFIGRATE 33 [current_design]

@@ -8,4 +8,4 @@ Start Address      0x00000000
 End Address        0x001FFFFF
 
 Addr1         Addr2         Date                    File(s)
-0x00000000    0x00108843    Dec  6 03:44:54 2024    C:/Users/Xingyu_Brian_Zhou/Documents/BaiduSyncdisk/0A Curriculum/FPGA Lab/Project/FPGA_Breakout/breakout/breakout.runs/impl_1/main.bit
+0x00000000    0x000E27E7    Dec  3 19:33:10 2024    C:/Users/Xingyu_Brian_Zhou/Documents/BaiduSyncdisk/0A Curriculum/FPGA Lab/Project/FPGA_Breakout/main-eji.bit

@@ -4,7 +4,7 @@ use IEEE.numeric_std.all;
 
 entity breakout is
     port(
-        clk:     in  std_logic;
+        clkfx:     in  std_logic;
         hcount:    in  unsigned(9 downto 0);
         vcount:    in  unsigned(9 downto 0);
         frame:     in  std_logic;
@@ -71,7 +71,7 @@ architecture arch of breakout is
     signal ball_y: integer range GAME_TOP_BOUND to GAME_BOTTOM_BOUND := PADDLE_Y - BALL_SIZE - 1;
     signal ball_dx: integer range -BALL_SPEED_MAX to BALL_SPEED_MAX := BALL_SPEED_INIT;
     signal ball_dy: integer range -BALL_SPEED_MAX to BALL_SPEED_MAX := -BALL_SPEED_INIT;
-
+    
     signal random_cnt_x: integer := 75;
     signal random_cnt_y: integer := 75;
     signal random_blk_x: integer := 300;
@@ -210,7 +210,7 @@ begin
     game_over_port <= game_over;
     victory_port <= victory;
 
-    game_process: process(clk)
+    process(clkfx)
         variable block_x, block_y: integer;
         variable next_ball_x : integer range GAME_LEFT_BOUND to GAME_RIGHT_BOUND;
         variable next_ball_y : integer range GAME_TOP_BOUND to GAME_BOTTOM_BOUND;
@@ -221,7 +221,7 @@ begin
         variable collision: collision_info;
         variable ball_x_change,ball_y_change: std_logic;
     begin
-        if rising_edge(clk) then
+        if rising_edge(clkfx) then
             if random_cnt_x >= 525 then
                 random_cnt_x <= 75;
             else
@@ -233,23 +233,127 @@ begin
             else
                 random_cnt_y <= random_cnt_y + 1;
             end if;         
-        
+            
             -- LFSR transformation
             random_seed <= random_seed(14 downto 0) & 
                            (random_seed(15) xor random_seed(14) xor 
                             random_seed(12) xor random_seed(3));
             
-            -- -- Reset game logic
-            -- if game_over = '1' and (btn(0) = '1' or btn(1) = '1') then
-            --     blocks <= (others => '1');
-            --     block_colors <= init_random_colors(random_seed);  -- Initialize random colors
-            --     cleared_blocks_count := 0;
-            -- end if;
+            -- Reset game logic (redundant with new game_state FSM
+     --       if game_over = '1' and (btn(0) = '1' or btn(1) = '1') then
+     --           blocks <= (others => '1');
+     --           block_colors <= init_random_colors(random_seed);  -- Initialize random colors
+     --           cleared_blocks_count := 0;
+     --       end if;
 
-            -- -- Default colors (black background)
-            -- obj1_red <= "00";
-            -- obj1_grn <= "00";
-            -- obj1_blu <= "00";
+            -- Default colors (black background)
+            obj1_red <= "00";
+            obj1_grn <= "00";
+            obj1_blu <= "00";
+            
+            -- Draw precise rectangular border
+            if ((hcount >= to_unsigned(GAME_LEFT_BOUND - 10, 10) and 
+                 hcount < to_unsigned(GAME_LEFT_BOUND, 10) and 
+                 vcount >= to_unsigned(GAME_TOP_BOUND - 10, 10) and 
+                 vcount < to_unsigned(GAME_BOTTOM_BOUND + 10, 10)) or
+                (hcount >= to_unsigned(GAME_RIGHT_BOUND, 10) and 
+                 hcount < to_unsigned(GAME_RIGHT_BOUND + 10, 10) and 
+                 vcount >= to_unsigned(GAME_TOP_BOUND - 10, 10) and 
+                 vcount < to_unsigned(GAME_BOTTOM_BOUND + 10, 10)) or
+                (vcount >= to_unsigned(GAME_TOP_BOUND - 10, 10) and 
+                 vcount < to_unsigned(GAME_TOP_BOUND, 10) and 
+                 hcount >= to_unsigned(GAME_LEFT_BOUND - 10, 10) and 
+                 hcount < to_unsigned(GAME_RIGHT_BOUND + 10, 10)) or
+                (vcount >= to_unsigned(GAME_BOTTOM_BOUND, 10) and 
+                 vcount < to_unsigned(GAME_BOTTOM_BOUND + 10, 10) and 
+                 hcount >= to_unsigned(GAME_LEFT_BOUND - 10, 10) and 
+                 hcount < to_unsigned(GAME_RIGHT_BOUND + 10, 10))) then
+                obj1_red <= "11";
+                obj1_grn <= "11";
+                obj1_blu <= "11";
+            end if;
+            
+            -- Draw blocks
+            for i in 0 to (BLOCKS_PER_ROW * NUM_ROWS - 1) loop
+                block_x := BLOCKS_START_X + (i mod BLOCKS_PER_ROW) * (BLOCK_WIDTH + 10);
+                block_y := BLOCKS_START_Y + (i / BLOCKS_PER_ROW) * (BLOCK_HEIGHT + 10);
+                
+                if blocks(i) = '1' and
+                   hcount >= to_unsigned(block_x, 10) and
+                   hcount < to_unsigned(block_x + BLOCK_WIDTH, 10) and
+                   vcount >= to_unsigned(block_y, 10) and
+                   vcount < to_unsigned(block_y + BLOCK_HEIGHT, 10) then
+                    -- gray blocks when start or game over
+                    if (game_started = '0') or (game_over = '1') then
+                        obj1_red <= "10";
+                        obj1_grn <= "10";
+                        obj1_blu <= "10";
+                    else
+                        -- Color based on block_colors array
+                        case block_colors(i) is
+                            when RED => 
+                                obj1_red <= "11";
+                                obj1_grn <= "00";
+                                obj1_blu <= "00";
+                            when CYAN =>
+                                obj1_red <= "00";
+                                obj1_grn <= "11";
+                                obj1_blu <= "11";
+                            when GREEN =>
+                                obj1_red <= "00";
+                                obj1_grn <= "11";
+                                obj1_blu <= "00";
+                            when WHITE =>
+                                obj1_red <= "11";
+                                obj1_grn <= "11";
+                                obj1_blu <= "11";
+                        end case;
+                    end if;
+                end if;
+            end loop;
+            
+            -- Draw random block
+            if random_blk = '1' and
+                hcount >= to_unsigned(random_blk_x, 10) and
+                hcount < to_unsigned(random_blk_x + BLOCK_WIDTH, 10) and
+                vcount >= to_unsigned(random_blk_y, 10) and
+                vcount < to_unsigned(random_blk_y + BLOCK_HEIGHT, 10) then
+                    obj1_grn <= "11";
+            end if;
+            
+            -- Draw paddle
+            if hcount >= to_unsigned(paddle_x - PADDLE_WIDTH/2, 10) and
+               hcount < to_unsigned(paddle_x + PADDLE_WIDTH/2, 10) and
+               vcount >= to_unsigned(PADDLE_Y, 10) and
+               vcount < to_unsigned(PADDLE_Y + PADDLE_HEIGHT, 10) then
+                obj1_red <= "11";
+                obj1_grn <= "11";
+                obj1_blu <= "11";
+            end if;
+            
+            -- Draw ball with circular approach
+            if ((hcount >= to_unsigned(ball_x - BALL_SIZE, 10)) and 
+                (hcount < to_unsigned(ball_x + BALL_SIZE, 10)) and 
+                (vcount >= to_unsigned(ball_y - BALL_SIZE, 10)) and 
+                (vcount < to_unsigned(ball_y + BALL_SIZE, 10))) then
+                
+                if ((abs(to_integer(hcount) - ball_x) * abs(to_integer(hcount) - ball_x) + 
+                     abs(to_integer(vcount) - ball_y) * abs(to_integer(vcount) - ball_y)) 
+                    <= BALL_SIZE * BALL_SIZE) then
+                    
+                    if ((abs(to_integer(hcount) - ball_x) * abs(to_integer(hcount) - ball_x) + 
+                         abs(to_integer(vcount) - ball_y) * abs(to_integer(vcount) - ball_y)) 
+                        <= (BALL_SIZE-2) * (BALL_SIZE-2)) then
+                        obj1_red <= "11";
+                        obj1_grn <= "11";
+                        obj1_blu <= "11";
+                    else
+                        obj1_red <= "10";
+                        obj1_grn <= "10";
+                        obj1_blu <= "10";
+                    end if;
+                end if;
+            end if;
             
             if frame = '1' then
                 case game_state is
@@ -263,6 +367,7 @@ begin
                         block_colors <= init_random_colors(random_seed);  -- Initialize random colors
                         score_i <= 0;
                         if btn(0) = '1' or btn(1) = '1' then
+                            -- game_started <= '1';
                             game_state <= PLAY_STATE;
                             ball_dy <= -BALL_SPEED_INIT;
                             if btn(0) = '1' then -- initial ball direction depends on button pressed
@@ -277,17 +382,11 @@ begin
                     when PLAY_STATE =>
                         game_started <= '1';
                         game_over <= '0';
-                        victory <= '0';
                         random_blk <= '1';
 
                         -- Paddle movement with boundary checking
-                        if btn(1) = '1' and btn(0) = '1' then -- cheat mode, move paddle to ball position
-                            paddle_x <= ball_x;
-                            if ball_x > GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1 then
-                                paddle_x <= GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1;
-                            elsif ball_x < GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1 then
-                                paddle_x <= GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1;
-                            end if;
+                        if btn(1) = '1' and btn(0) = '1' then
+                            paddle_x <= paddle_x;
                         elsif btn(1) = '1' and paddle_x < GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1 then
                             paddle_x <= paddle_x + PADDLE_SPEED;
                         elsif btn(0) = '1' and paddle_x > GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1 then
@@ -325,8 +424,8 @@ begin
                         ball_y_change := '0';
                         for i in 0 to (BLOCKS_PER_ROW * NUM_ROWS - 1) loop
                             -- move block check up here to use in if statement
-                                block_x := BLOCKS_START_X + (i mod BLOCKS_PER_ROW) * (BLOCK_WIDTH + 10);
-                                block_y := BLOCKS_START_Y + (i / BLOCKS_PER_ROW) * (BLOCK_HEIGHT + 10);
+                            block_x := BLOCKS_START_X + (i mod BLOCKS_PER_ROW) * (BLOCK_WIDTH + 10);
+                            block_y := BLOCKS_START_Y + (i / BLOCKS_PER_ROW) * (BLOCK_HEIGHT + 10);
                             if blocks(i) = '1' 
                                 and ((next_ball_x - BALL_SIZE - BLOCK_WIDTH - 10 < block_x) or (next_ball_x + BALL_SIZE + 10 > block_x))
                                 and ((next_ball_y - BALL_SIZE - BLOCK_HEIGHT - 10 < block_y) or (next_ball_y + BALL_SIZE + 10 > block_y))
@@ -408,9 +507,9 @@ begin
                                 end if;
                             end if;
                         end loop;
-                        -- ball_x_change := '0';
-                        -- ball_y_change := '0';
-
+                        ball_x_change := '0';
+                        ball_y_change := '0';
+                        
                         -- Horizontal boundary checking
                         if next_ball_x - BALL_SIZE <= GAME_LEFT_BOUND then
                             next_ball_x := GAME_LEFT_BOUND + BALL_SIZE;
@@ -453,30 +552,17 @@ begin
                             -- Handle collision direction
                             case collision.side is
                                 when LEFT =>
-                                    if ball_x_change = '0' then
-                                        next_ball_dx := -abs(next_ball_dx);
-                                        ball_x_change := '1';
-                                    end if;
+                                    next_ball_dx := -abs(next_ball_dx);
                                 when RIGHT =>
-                                    if ball_x_change = '0' then
-                                        next_ball_dx := abs(next_ball_dx);
-                                        ball_x_change := '1';
-                                    end if;
+                                    next_ball_dx := abs(next_ball_dx);
                                 when TOP =>
-                                    if ball_y_change = '0' then
-                                        next_ball_dy := -abs(next_ball_dy);
-                                        ball_y_change := '1';
-                                    end if;
-                                when BOTTOM =>
-                                    if ball_y_change = '0' then
-                                        next_ball_dy := abs(next_ball_dy);
-                                        ball_y_change := '1';
-                                    end if;
+                                    next_ball_dy := -abs(next_ball_dy);
+                                when BOTTOM =>    
+                                    next_ball_dy := abs(next_ball_dy);
                                 when others =>
-                                    if ball_x_change = '0' or ball_y_change = '0' then
+                                    if ball_y_change = '0' then
                                         next_ball_dy := -(next_ball_dy);
                                         next_ball_dx := -(next_ball_dx);
-                                        ball_x_change := '1';
                                         ball_y_change := '1';
                                     end if;
                             end case;
@@ -500,9 +586,137 @@ begin
                             else
                                 ball_dx <= BALL_SPEED_INIT;
                             end if;
-                        end if;
+                        end if;                       
                 end case;
             end if;
+
+            -- Game state update on frame
+            -- if frame = '1' then
+            --     -- Game restart logic
+            --     if game_over = '1' and (btn(0) = '1' or btn(1) = '1') then
+            --         game_over <= '0';
+            --         blocks <= (others => '1');
+            --         block_colors <= init_random_colors(random_seed);  -- Initialize random colors
+            --         score_i <= 0;
+            --         ball_x <= paddle_x;
+            --         ball_y <= PADDLE_Y - BALL_SIZE - 1;
+            --         ball_dy <= -BALL_SPEED_INIT;
+            --         if btn(0) = '1' then -- initial ball direction depends on button pressed
+            --             ball_dx <= -BALL_SPEED_INIT;
+            --         else
+            --             ball_dx <= BALL_SPEED_INIT;
+            --         end if;
+            --     end if;
+                
+            --     if game_over = '0' then
+            --         -- Game start logic
+            --         if game_started = '0' then
+            --             ball_x <= paddle_x;
+            --             ball_y <= PADDLE_Y - BALL_SIZE - 1;
+            --             blocks <= (others => '1');
+            --             block_colors <= init_random_colors(random_seed);  -- Initialize random colors
+            --             score_i <= 0;
+            --             if btn(0) = '1' or btn(1) = '1' then
+            --                 game_started <= '1';
+            --                 ball_dy <= -BALL_SPEED_INIT;
+            --                 if btn(0) = '1' then -- initial ball direction depends on button pressed
+            --                     ball_dx <= -BALL_SPEED_INIT;
+            --                 else
+            --                     ball_dx <= BALL_SPEED_INIT;
+            --                 end if;
+            --             end if;
+            --         end if;
+                    
+            --         -- Paddle movement with boundary checking
+            --         if btn(1) = '1' and btn(0) = '1' then
+            --             paddle_x <= paddle_x;
+            --         elsif btn(1) = '1' and paddle_x < GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1 then
+            --             paddle_x <= paddle_x + PADDLE_SPEED;
+            --         elsif btn(0) = '1' and paddle_x > GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1 then
+            --             paddle_x <= paddle_x - PADDLE_SPEED;
+            --         end if;
+                    
+            --         -- Ball movement and collision logic
+            --         if game_started = '1' then
+            --             next_ball_x := ball_x + ball_dx;
+            --             next_ball_y := ball_y + ball_dy;
+                        
+            --             -- Horizontal boundary checking
+            --             if next_ball_x - BALL_SIZE <= GAME_LEFT_BOUND then
+            --                 next_ball_x := GAME_LEFT_BOUND + BALL_SIZE;
+            --                 ball_dx <= abs(ball_dx);
+            --             elsif next_ball_x + BALL_SIZE >= GAME_RIGHT_BOUND then
+            --                 next_ball_x := GAME_RIGHT_BOUND - BALL_SIZE;
+            --                 ball_dx <= -abs(ball_dx);
+            --             end if;
+                        
+            --             -- Vertical boundary checking
+            --             if next_ball_y - BALL_SIZE <= GAME_TOP_BOUND then
+            --                 next_ball_y := GAME_TOP_BOUND + BALL_SIZE;
+            --                 ball_dy <= abs(ball_dy);
+            --             elsif next_ball_y + BALL_SIZE >= GAME_BOTTOM_BOUND then
+            --                 next_ball_y := GAME_BOTTOM_BOUND - BALL_SIZE;
+            --                 game_over <= '1';
+            --             end if;
+                        
+            --             -- Ball collision with paddle
+            --             collision := detect_collision(
+            --                 next_ball_x, next_ball_y, BALL_SIZE,
+            --                 paddle_x - PADDLE_WIDTH/2, PADDLE_Y,
+            --                 PADDLE_WIDTH, PADDLE_HEIGHT
+            --             );
+                        
+            --             if collision.collided = '1' then
+            --                 if btn(1) = '1' and paddle_x < GAME_RIGHT_BOUND - PADDLE_WIDTH/2 - 1 then
+            --                     ball_dx <= ball_dx + 1;
+            --                 elsif btn(0) = '1' and paddle_x > GAME_LEFT_BOUND + PADDLE_WIDTH/2 + 1 then
+            --                     ball_dx <= ball_dx - 1;
+            --                 else
+            --                     ball_dx <= ball_dx;
+            --                 end if;
+            --                 ball_dy <= -abs(ball_dy);
+            --             end if;
+                        
+            --             -- Ball collision with blocks
+            --             for i in 0 to (BLOCKS_PER_ROW * NUM_ROWS - 1) loop
+            --                 if blocks(i) = '1' then
+            --                     block_x := BLOCKS_START_X + (i mod BLOCKS_PER_ROW) * (BLOCK_WIDTH + 10);
+            --                     block_y := BLOCKS_START_Y + (i / BLOCKS_PER_ROW) * (BLOCK_HEIGHT + 10);
+                                
+            --                     collision := detect_collision(
+            --                         next_ball_x, next_ball_y, BALL_SIZE,
+            --                         block_x, block_y, BLOCK_WIDTH, BLOCK_HEIGHT
+            --                     );
+                                
+            --                     if collision.collided = '1' then
+            --                         blocks(i) <= '0';  -- Destroy block
+                                    
+            --                         case collision.side is
+            --                             when LEFT =>
+            --                                 ball_dx <= -abs(ball_dx);
+            --                                 -- next_ball_x := block_x - BALL_SIZE;
+            --                             when RIGHT =>
+            --                                 ball_dx <= abs(ball_dx);
+            --                                 -- next_ball_x := block_x + BLOCK_WIDTH + BALL_SIZE;
+            --                             when TOP =>
+            --                                 ball_dy <= -abs(ball_dy);
+            --                                 -- next_ball_y := block_y - BALL_SIZE;
+            --                             when BOTTOM =>
+            --                                 ball_dy <= abs(ball_dy);
+            --                                 -- next_ball_y := block_y + BLOCK_HEIGHT + BALL_SIZE;
+            --                             when NONE =>
+            --                                 null;
+            --                         end case;
+            --                     end if;
+            --                 end if;
+            --             end loop;
+
+            --             -- Update ball position
+            --             ball_x <= next_ball_x;
+            --             ball_y <= next_ball_y;
+            --         end if;
+            --     end if;
+            -- end if;
 
             -- Count cleared blocks
             cleared_blocks_count := 0;
@@ -515,138 +729,5 @@ begin
             -- Update score
             score_i <= cleared_blocks_count;
         end if;
-    end process game_process;
-
-    -- Rendering process
-    rendering_process: process(hcount, vcount, game_state, blocks, block_colors, random_blk, random_blk_x, random_blk_y,
-                               paddle_x, ball_x, ball_y, game_started, game_over, victory)
-        variable block_x, block_y: integer;
-    begin
-        -- Default colors (black background)
-        obj1_red <= "00";
-        obj1_grn <= "00";
-        obj1_blu <= "00";
-        
-        -- Draw precise rectangular border
-        if ((hcount >= to_unsigned(GAME_LEFT_BOUND - 10, 10) and 
-             hcount < to_unsigned(GAME_LEFT_BOUND, 10) and 
-             vcount >= to_unsigned(GAME_TOP_BOUND - 10, 10) and 
-             vcount < to_unsigned(GAME_BOTTOM_BOUND + 10, 10)) or
-            (hcount >= to_unsigned(GAME_RIGHT_BOUND, 10) and 
-             hcount < to_unsigned(GAME_RIGHT_BOUND + 10, 10) and 
-             vcount >= to_unsigned(GAME_TOP_BOUND - 10, 10) and 
-             vcount < to_unsigned(GAME_BOTTOM_BOUND + 10, 10)) or
-            (vcount >= to_unsigned(GAME_TOP_BOUND - 10, 10) and 
-             vcount < to_unsigned(GAME_TOP_BOUND, 10) and 
-             hcount >= to_unsigned(GAME_LEFT_BOUND - 10, 10) and 
-             hcount < to_unsigned(GAME_RIGHT_BOUND + 10, 10)) or
-            (vcount >= to_unsigned(GAME_BOTTOM_BOUND, 10) and 
-             vcount < to_unsigned(GAME_BOTTOM_BOUND + 10, 10) and 
-             hcount >= to_unsigned(GAME_LEFT_BOUND - 10, 10) and 
-             hcount < to_unsigned(GAME_RIGHT_BOUND + 10, 10))) then
-            obj1_red <= "11";
-            obj1_grn <= "11";
-            obj1_blu <= "11";
-        end if;
-        
-        -- Draw blocks
-        for i in 0 to (BLOCKS_PER_ROW * NUM_ROWS - 1) loop
-            block_x := BLOCKS_START_X + (i mod BLOCKS_PER_ROW) * (BLOCK_WIDTH + 10);
-            block_y := BLOCKS_START_Y + (i / BLOCKS_PER_ROW) * (BLOCK_HEIGHT + 10);
-            
-            if blocks(i) = '1' and
-               hcount >= to_unsigned(block_x, 10) and
-               hcount < to_unsigned(block_x + BLOCK_WIDTH, 10) and
-               vcount >= to_unsigned(block_y, 10) and
-               vcount < to_unsigned(block_y + BLOCK_HEIGHT, 10) then
-                -- gray blocks when start or game over
-                if (game_started = '0') or (game_over = '1') then
-                    obj1_red <= "10";
-                    obj1_grn <= "10";
-                    obj1_blu <= "10";
-                else
-                    -- Color based on block_colors array
-                    case block_colors(i) is
-                        when RED => 
-                            obj1_red <= "11";
-                            obj1_grn <= "00";
-                            obj1_blu <= "00";
-                        when CYAN =>
-                            obj1_red <= "00";
-                            obj1_grn <= "11";
-                            obj1_blu <= "11";
-                        when GREEN =>
-                            obj1_red <= "00";
-                            obj1_grn <= "11";
-                            obj1_blu <= "00";
-                        when WHITE =>
-                            obj1_red <= "11";
-                            obj1_grn <= "11";
-                            obj1_blu <= "11";
-                    end case;
-                end if;
-            end if;
-        end loop;
-        
-        -- Draw random block
-        if random_blk = '1' and
-            hcount >= to_unsigned(random_blk_x, 10) and
-            hcount < to_unsigned(random_blk_x + BLOCK_WIDTH, 10) and
-            vcount >= to_unsigned(random_blk_y, 10) and
-            vcount < to_unsigned(random_blk_y + BLOCK_HEIGHT, 10) then
-                obj1_grn <= "11";
-        end if;
-
-        -- Draw paddle
-        if hcount >= to_unsigned(paddle_x - PADDLE_WIDTH/2, 10) and
-           hcount < to_unsigned(paddle_x + PADDLE_WIDTH/2, 10) and
-           vcount >= to_unsigned(PADDLE_Y, 10) and
-           vcount < to_unsigned(PADDLE_Y + PADDLE_HEIGHT, 10) then
-            obj1_red <= "11";
-            obj1_grn <= "11";
-            obj1_blu <= "11";
-        end if;
-        
-        -- Draw ball with circular approach
-        if ((hcount >= to_unsigned(ball_x - BALL_SIZE, 10)) and 
-            (hcount < to_unsigned(ball_x + BALL_SIZE, 10)) and 
-            (vcount >= to_unsigned(ball_y - BALL_SIZE, 10)) and 
-            (vcount < to_unsigned(ball_y + BALL_SIZE, 10))) then
-            
-            if ((abs(to_integer(hcount) - ball_x) * abs(to_integer(hcount) - ball_x) + 
-                 abs(to_integer(vcount) - ball_y) * abs(to_integer(vcount) - ball_y)) 
-                <= BALL_SIZE * BALL_SIZE) then
-                
-                if ((abs(to_integer(hcount) - ball_x) * abs(to_integer(hcount) - ball_x) + 
-                     abs(to_integer(vcount) - ball_y) * abs(to_integer(vcount) - ball_y)) 
-                    <= (BALL_SIZE-2) * (BALL_SIZE-2)) then
-                    obj1_red <= "11";
-                    obj1_grn <= "11";
-                    obj1_blu <= "11";
-                else
-                    obj1_red <= "10";
-                    obj1_grn <= "10";
-                    obj1_blu <= "10";
-                end if;
-            end if;
-        end if;
-    end process rendering_process;
-
-    -- -- Add a new process for block counting and score updating
-    -- block_count_process: process(clk)
-    --     variable cleared_blocks_count : integer range 0 to (BLOCKS_PER_ROW * NUM_ROWS) := 0;
-    -- begin
-    --     if rising_edge(clk) then
-    --         -- Count cleared blocks
-    --         cleared_blocks_count := 0;
-    --         for i in 0 to (BLOCKS_PER_ROW * NUM_ROWS - 1) loop
-    --             if blocks(i) = '0' then
-    --                 cleared_blocks_count := cleared_blocks_count + 1;
-    --             end if;
-    --         end loop;
-
-    --         -- Update score
-    --         score_i <= cleared_blocks_count;
-    --     end if;
-    -- end process block_count_process;
+    end process;
 end arch;

@@ -23,8 +23,6 @@ end main;
 architecture arch of main is
 	signal clkfb:    std_logic;
 	signal clkfx:    std_logic;
-	signal clkfx_slow: std_logic:= '0'; 	-- slow clock, clkfx divided by 8
-	signal clk_div:	 unsigned(2 downto 0):= (others => '0'); -- clkfx divide by 8 counter
 	signal hcount:   unsigned(9 downto 0);
 	signal vcount:   unsigned(9 downto 0);
 	signal blank:    std_logic;
@@ -48,7 +46,7 @@ architecture arch of main is
 	-- Game component declaration
 	component breakout is
 		port(
-			clk:     in  std_logic;
+			clkfx:     in  std_logic;
 			hcount:    in  unsigned(9 downto 0);
 			vcount:    in  unsigned(9 downto 0);
 			frame:     in  std_logic;
@@ -58,8 +56,8 @@ architecture arch of main is
 			obj1_blu:  out std_logic_vector(1 downto 0);
 			score:     out integer range 0 to 40;
 			game_started_port: out std_logic;
-			game_over_port:    out std_logic;
-			victory_port:      out std_logic
+            game_over_port:    out std_logic;
+            victory_port:      out std_logic
 		);
 	end component;
 begin
@@ -85,7 +83,6 @@ begin
 		-- Input clock period in ns to ps resolution (i.e. 33.333 is 30 MHz).
 		CLKIN1_PERIOD=>83.333,
 		-- Divide amount for each CLKOUT (1-128)
-		-- CLKOUT1_DIVIDE=>8,
 		CLKOUT1_DIVIDE=>1,
 		CLKOUT2_DIVIDE=>1,
 		CLKOUT3_DIVIDE=>1,
@@ -122,7 +119,6 @@ begin
 		-- User Configurable Clock Outputs:
 		CLKOUT0=>clkfx,  -- 1-bit output: CLKOUT0
 		CLKOUT0B=>open,  -- 1-bit output: Inverted CLKOUT0
-		-- CLKOUT1=>clkfx_slow,  -- 1-bit output: CLKOUT1 (slow clock)
 		CLKOUT1=>open,   -- 1-bit output: CLKOUT1
 		CLKOUT1B=>open,  -- 1-bit output: Inverted CLKOUT1
 		CLKOUT2=>open,   -- 1-bit output: CLKOUT2
@@ -221,23 +217,10 @@ begin
             b"11" when (obj1_blu = "11" or obj2_blu = "11") else
             obj1_blu;
 
-	-- Divide the clock by 8
-	process(clkfx)
-	begin
-		if rising_edge(clkfx) then
-			if clk_div = b"111" then
-				clkfx_slow <= not clkfx_slow;
-				clk_div <= (others => '0');
-			else
-				clk_div <= clk_div + 1;
-			end if;
-		end if;
-	end process;
 
 	-- Game component instantiation
 	game: breakout port map(
-		clk     => clkfx_slow,
-		-- clk     => clkfx,
+		clkfx     => clkfx,
 		hcount    => hcount,
 		vcount    => vcount,
 		frame     => frame,
